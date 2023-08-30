@@ -5,6 +5,17 @@
 wget -qO- https://raw.githubusercontent.com/creationix/nvm/v0.39.0/install.sh | bash
 source ~/.bashrc
 nvm install v18
+nvm use v18
+```
+
+- install dependencies
+```shell
+npm install
+```
+
+- compile the contract
+```shell
+npx hardhat compile
 ```
 
 - create the `data/config.json` file using the following template:
@@ -53,21 +64,14 @@ curl -X GET "http://0.0.0.0:8181/auto"
 That command will send `50,000` transactions to the target using `80` threads (set by `transactions` and `workers` in `data/config.json`).
 
 
-Or sending requests via `artillery`/`wrk` to:
+You can send requests via [artillery](https://www.artillery.io/docs/get-started/get-artillery) by running:
 ```shell
 artillery quick --count 50 --num 500 http://0.0.0.0:8181/sendRawTransaction
 ```
+This command will send 25,000 requests to `/sendRawTransaction` (`50` "users" sending `500` requests each).
 
-That command will send 25,000 (`50` "users" sending `500` requests each) requests to `/sendRawTransaction`.
-
+You can also use `wrk`  to send requests (install it using `apt install wrk`):
 ```
 wrk -t 50 -c 50 -d 600 --latency --timeout 1m http://0.0.0.0:8181/sendRawTransaction
 ```
-
-That command will spawn 50 threads to send requests to `/sendRawTransaction` in 600 seconds.
-
-To run it using a different JSON files directory (other than `data/`) by setting `EVM_TPS_ROOT_DIR`:
-
-```shell
-EVM_TPS_ROOT_DIR="path/to/dir" npx hardhat run scripts/tps-server.ts --network local
-```
+This command will spawn 50 threads to send requests to `/sendRawTransaction` in 600 seconds.
