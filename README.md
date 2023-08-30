@@ -1,7 +1,41 @@
 ## Setup:
 
 - install Node v18
-- change test's parameters in [data/config.json](./data/config.json):
+```shell
+wget -qO- https://raw.githubusercontent.com/creationix/nvm/v0.39.0/install.sh | bash
+source ~/.bashrc
+nvm install v18
+```
+
+- create the `data/config.json` file using the following template:
+```json
+{
+  "tpsServerHost": "0.0.0.0",
+  "tpsServerPort": 8181,
+  "endpoint": "https://rpc-dev.arthera.net",
+  "deployer": {
+    "address": "0x..................",
+    "privateKey": "0x........................."
+  },
+  "fundSenders": true,
+  "accounts": 100,
+  "workers": 80,
+  "sendRawTransaction": true,
+  "timeout": 15000,
+  "tokenMethod": "transferLoop",
+  "tokenAmountToMint": 1000000000,
+  "tokenTransferMultiplier": 1,
+  "tokenAssert": true,
+  "transactions": 1000,
+  "gasLimit": "200000",
+  "txpoolMaxLength": -1,
+  "txpoolMultiplier": 2,
+  "txpoolLimit": 7500,
+  "checkersInterval": 250,
+  "estimate": false,
+  "verbose": true
+}
+```
 
 ## Running:
 
@@ -16,7 +50,7 @@ After the initial setup is done, you can trigger an "auto" run by:
 curl -X GET "http://0.0.0.0:8181/auto"
 ```
 
-That command will send `50,000` transactions to the target using `80` threads (set by `transactions` and `workers` in the [data/config.json](./data/config.json)).
+That command will send `50,000` transactions to the target using `80` threads (set by `transactions` and `workers` in `data/config.json`).
 
 
 Or sending requests via `artillery`/`wrk` to:
