@@ -164,7 +164,7 @@ const setConfig = async (configFilename: string, deployer: Wallet) => {
     const token = await deploy(deployer);
     let tx = await token.start({ gasLimit, gasPrice });
     await tx.wait();
-    tx = await token.mintTo(deployer.address, config.tokenAmountToMint);
+    tx = await token.mintTo(deployer.address, config.tokenAmountToMint, { gasLimit, gasPrice });
     await tx.wait();
     config.tokenAddress = token.address;
   }
@@ -432,16 +432,14 @@ const getReceiptLocally = async (txnHash: string, delay: number, retries: number
 }
 
 const txpoolChecker = async (config: TPSConfig) => {
-  let method = "txpool_status";
+  let initialResult = await waitForResponse(config, "txpool_status", [], 250, 1);
+  initialPoolLength = parseInt(initialResult.pending, 16) + parseInt(initialResult.queued, 16);
+  console.log(`[initialPoolLength] ${initialPoolLength}`);
 
   while (1) {
     try {
-      let result = await waitForResponse(config, method, [], 250, 1);
+      let result = await waitForResponse(config, "txpool_status", [], 250, 1);
       txPoolLength = parseInt(result.pending, 16) + parseInt(result.queued, 16);
-      if (initialPoolLength === 0) {
-        console.log(`Tx pool initial length: ${initialPoolLength}`);
-        initialPoolLength = txPoolLength;
-      }
     } catch { txPoolLength = -1; }
     await new Promise(r => setTimeout(r, config.checkersInterval));
   }
@@ -459,11 +457,7 @@ const gasPriceChecker = async (config: TPSConfig) => {
 }
 
 const printGasPrice = (value: BigNumber) => {
-  let normalized = `${Math.round(value.div(1_000_000).toNumber())}M`;
-  if (value.gte(1_000_000_000)) normalized = `${Math.round(value.div(1_000_000_000).toNumber())}B`;
-  if (value.gte(1_000_000_000_000)) normalized = `${Math.round(value.div(1_000_000_000_000).toNumber())}T`;
-  if (value.gte(1_000_000_000_000_000)) normalized = `${Math.round(value.div(1_000_000_000_000_000).toNumber())}Q`;
-  return normalized;
+  return `${ethers.utils.formatUnits(value, "gwei")} gwei`;
 }
 
 const checkTxpool = async (config: TPSConfig) => {
@@ -557,7 +551,7 @@ const calculateTPS = async (config: TPSConfig, chainId: number, startingBlock: B
   let lastBlock = await waitForResponse(config, "eth_getBlockByNumber", ["latest", false], 250, 500);
 
   let lastBlockNumber = lastBlock.number;
-  while (lastBlock.transactions.length > 0 || lastBlock.number === startingBlock.number) {
+  while (lastBlock.number === startingBlock.number) {
     lastBlockNumber = lastBlock.number;
     await new Promise(r => setTimeout(r, 200));
     lastBlock = await waitForResponse(config, "eth_getBlockByNumber", ["latest", false], 250, 500);
@@ -735,23 +729,26 @@ const auto = async (config: TPSConfig, gasLimit: BigNumber, chainId: number) => 
     while (workersMap.size > 0) {
       await new Promise(r => setTimeout(r, 5))
     }
+    console.log("[STOPPING] No more workers");
 
-    while (reqErrorsMap.size > 0) await resendAuto(config, workerId, gasLimit, chainId);
+    while (reqErrorsMap.size > 0) {
+      await resendAuto(config, workerId, gasLimit, chainId);
+    }
+    console.log("[STOPPING] No errors");
 
     while (txPoolLength > initialPoolLength) {
       await new Promise(r => setTimeout(r, 100));
     }
-
-    // Wait till no more running workers.
-    while (workersMap.size > 0) {
-      await new Promise(r => setTimeout(r, 5))
-    }
+    console.log("[STOPPING] No more tx in pool");
 
     let tpsResult = await calculateTPS(config, chainId, startingBlock);
     reqErrorsMap.clear();
     reqErrCounter = 0;
 
-    if (config.tokenAssert) await assertTokenBalances(config);
+    if (config.tokenAssert) {
+      console.log("[STOPPING] assertTokenBalances");
+      await assertTokenBalances(config);
+    }
 
     lastTxHash = "";
 
